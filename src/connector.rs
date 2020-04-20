@@ -94,40 +94,6 @@ where
     }
 }
 
-#[cfg(all(
-    any(feature = "rustls-native-certs", feature = "webpki-roots"),
-    feature = "tokio-runtime"
-))]
-impl<H> From<H> for HttpsConnector<H> {
-    fn from(http: H) -> Self {
-        let mut config = ClientConfig::new();
-        config.alpn_protocols = vec![b"h2".to_vec(), b"http/1.1".to_vec()];
-        #[cfg(feature = "rustls-native-certs")]
-        {
-            config.root_store = match rustls_native_certs::load_native_certs() {
-                Ok(store) => store,
-                Err((Some(store), err)) => {
-                    warn!("Could not load all certificates: {:?}", err);
-                    store
-                }
-                Err((None, err)) => Err(err).expect("cannot access native cert store"),
-            };
-        }
-        #[cfg(feature = "webpki-roots")]
-        {
-            config
-                .root_store
-                .add_server_trust_anchors(&webpki_roots::TLS_SERVER_ROOTS);
-        }
-        config.ct_logs = Some(&ct_logs::LOGS);
-
-        HttpsConnector {
-            http,
-            tls_config: config.into(),
-        }
-    }
-}
-
 impl<T> Service<Uri> for HttpsConnector<T>
 where
     T: Service<Uri>,
